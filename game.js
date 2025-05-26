@@ -117,10 +117,10 @@ function createEnvironment() {
 }
 
 function createPlayer() {
-    const playerGeometry = new THREE.CapsuleGeometry(0.5, 1, 4, 8); // Radius, height, segments
+    const playerGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 16); // Radius top, radius bottom, height, segments
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green color for elf
     player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.position.set(0, 0.5, 0); // Initial position of the elf (standing on the ground)
+    player.position.set(0, 1, 0); // Adjusted Y for cylinder height of 2
     scene.add(player);
 }
 
