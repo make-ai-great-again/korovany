@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 let player;
+let noise, scaleFactor, heightMultiplier; // Made global
 const moveSpeed = 0.1;
 const rotateSpeed = 0.05;
 const movement = {
@@ -15,7 +16,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
 // Camera
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000); // Increased far plane
 camera.position.set(0, 1.5, 5); // Position the camera
 
 // Renderer
@@ -82,45 +83,82 @@ document.addEventListener('keyup', (event) => {
 
 function createEnvironment() {
     // Ground
-    const groundGeometry = new THREE.PlaneGeometry(50, 50); // Width, height
+    const groundGeometry = new THREE.PlaneGeometry(500, 500, 100, 100); // Width, height, widthSegments, heightSegments
     const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 }); // Forest green
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-    ground.position.y = 0;
+    ground.position.y = 0; // Keep initial y at 0, noise will modify actual vertex heights
     scene.add(ground);
+
+    // Terrain height variation
+    // Make sure SimplexNoise is available (it should be, from index.html)
+    // Assign to global variables
+    noise = new SimplexNoise(); 
+    scaleFactor = 50; // How "zoomed in" the noise is. Larger number = more spread out hills.
+    heightMultiplier = 10; // How tall the hills are.
+    
+    const positionAttribute = ground.geometry.attributes.position;
+
+    for (let i = 0; i < positionAttribute.count; i++) {
+        const vertex = new THREE.Vector3().fromBufferAttribute(positionAttribute, i);
+        
+        // Note: PlaneGeometry is created in XY plane. When rotated -Math.PI/2 around X,
+        // its original X becomes world X, and its original Y becomes world Z.
+        // The vertex.z is the height we want to modify *before* rotation.
+        // So we use vertex.x and vertex.y for noise calculation before they are rotated.
+        
+        const noiseValue = noise.noise2D(vertex.x / scaleFactor, vertex.y / scaleFactor); // Use global noise, scaleFactor
+        
+        // Modify the z-coordinate (which becomes height after rotation)
+        positionAttribute.setZ(i, noiseValue * heightMultiplier); // Use global heightMultiplier
+    }
+
+    positionAttribute.needsUpdate = true; // Tell Three.js to update the geometry
+    ground.geometry.computeVertexNormals(); // Recalculate normals for correct lighting
 
     // Trees
     const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Brown for trunk
     const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x006400 }); // Dark green for leaves
+    const numberOfTrees = 200;
+    const mapSize = 500; // Same as ground plane size
+    const trunkHeight = 4; // Keep this consistent with geometry
+    const leavesOffsetY = 3; // How much higher the leaves are from the trunk base + trunkHeight/2
 
-    const treePositions = [
-        { x: 5, z: -5 },
-        { x: -8, z: -10 },
-        { x: 10, z: 0 },
-        { x: -15, z: 8 },
-        { x: 12, z: -15 }
-    ];
+    for (let i = 0; i < numberOfTrees; i++) {
+        // Generate random X and Z positions within the map boundaries
+        const x = (Math.random() - 0.5) * mapSize; 
+        const z = (Math.random() - 0.5) * mapSize;
 
-    treePositions.forEach(pos => {
+        // Calculate terrain height at this (x,z) position using global noise parameters
+        const terrainHeight = noise.noise2D(x / scaleFactor, z / scaleFactor) * heightMultiplier;
+
         // Trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 8); // Radius top, radius bottom, height, segments
+        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, trunkHeight, 8);
         const trunk = new THREE.Mesh(trunkGeometry, treeMaterial);
-        trunk.position.set(pos.x, 2, pos.z); // Y position is half height
+        // Position trunk so its base is on the terrain
+        trunk.position.set(x, terrainHeight + trunkHeight / 2, z); 
         scene.add(trunk);
 
         // Leaves (simple sphere for now)
-        const leavesGeometry = new THREE.SphereGeometry(2, 8, 6); // Radius, width segments, height segments
+        const leavesGeometry = new THREE.SphereGeometry(2, 8, 6);
         const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-        leaves.position.set(pos.x, 5, pos.z); // Position above the trunk
+        // Position leaves above the trunk
+        leaves.position.set(x, terrainHeight + trunkHeight + leavesOffsetY, z); 
         scene.add(leaves);
-    });
+    }
 }
 
 function createPlayer() {
     const playerGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 16); // Radius top, radius bottom, height, segments
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green color for elf
     player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.position.set(0, 1, 0); // Adjusted Y for cylinder height of 2
+
+    const startX = 10;
+    const startZ = 10;
+    // Calculate the terrain height at the starting position using global noise parameters
+    const terrainHeight = noise.noise2D(startX / scaleFactor, startZ / scaleFactor) * heightMultiplier;
+    // Player height is 2, so stand on terrainHeight + 1
+    player.position.set(startX, terrainHeight + 1, startZ); 
     scene.add(player);
 }
 
