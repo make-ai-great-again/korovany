@@ -143,12 +143,12 @@ function updatePlayer() {
     player.getWorldDirection(forwardDirection); // Get the forward vector
 
     if (movement.forward) {
-        // Clone before multiplyScalar as it modifies in-place
-        player.position.add(forwardDirection.clone().multiplyScalar(moveSpeed));
+        // Invert the scalar for forward movement
+        player.position.add(forwardDirection.clone().multiplyScalar(-moveSpeed)); 
     }
     if (movement.backward) {
-        // Clone before multiplyScalar as it modifies in-place
-        player.position.add(forwardDirection.clone().multiplyScalar(-moveSpeed));
+        // Use a positive scalar for backward movement (which is forward relative to the inverted direction)
+        player.position.add(forwardDirection.clone().multiplyScalar(moveSpeed));
     }
 
     // Camera follow (simple third-person follow)
