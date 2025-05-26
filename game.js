@@ -139,14 +139,16 @@ function updatePlayer() {
     }
 
     // Movement (relative to player's direction)
-    const direction = new THREE.Vector3();
-    player.getWorldDirection(direction);
+    const forwardDirection = new THREE.Vector3();
+    player.getWorldDirection(forwardDirection); // Get the forward vector
 
     if (movement.forward) {
-        player.position.add(direction.multiplyScalar(moveSpeed));
+        // Clone before multiplyScalar as it modifies in-place
+        player.position.add(forwardDirection.clone().multiplyScalar(moveSpeed));
     }
     if (movement.backward) {
-        player.position.add(direction.multiplyScalar(-moveSpeed)); // Moving backward
+        // Clone before multiplyScalar as it modifies in-place
+        player.position.add(forwardDirection.clone().multiplyScalar(-moveSpeed));
     }
 
     // Camera follow (simple third-person follow)
